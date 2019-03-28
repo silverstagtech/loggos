@@ -2,6 +2,7 @@ package jsonprinter
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"testing"
 
@@ -154,6 +155,74 @@ func TestShutdownSending(t *testing.T) {
 
 	if tracing.Len() > 0 {
 		t.Log("Expecting no messages but got something.")
+		t.Fail()
+	}
+}
+
+func TestDecorations(t *testing.T) {
+	d1 := map[string]interface{}{
+		"testing_key_1": 1,
+		"testing_key_2": "two",
+		"testing_key_3": map[string]string{
+			"three": "number 3",
+		},
+	}
+
+	d2 := map[string]interface{}{
+		"bool_value": true,
+	}
+
+	tracing := gotracer.New()
+	jp := New(100)
+	jp.OverridePrinter(tracing)
+	jp.EnablePrettyPrint(true)
+
+	jp.AddDecoration(d1)
+	jp.AddDecoration(d2)
+
+	jm := jsonmessage.New()
+	jm.SetInfo()
+	jm.Message("Test decoration message.")
+
+	jp.Send(jm)
+	<-jp.Flush()
+
+	regexMatches := []string{
+		`"testing_key_1": 1`,
+		`"three": "number 3"`,
+		`bool_value": true`,
+	}
+
+	jmsg := tracing.Show()[0]
+
+	for _, matcher := range regexMatches {
+		if !regexp.MustCompile(matcher).MatchString(jmsg) {
+			t.Logf("Failed to match %s decoration. Raw String:\n%s", matcher, jmsg)
+			t.Fail()
+		}
+	}
+}
+
+func TestHumanTimestampping(t *testing.T) {
+	tracing := gotracer.New()
+	jp := New(100)
+	jp.OverridePrinter(tracing)
+	jp.EnablePrettyPrint(true)
+	jp.EnableHumanTimestamps(true)
+
+	jm := jsonmessage.New()
+	jm.SetInfo()
+	jm.Message("Test decoration message.")
+
+	jp.Send(jm)
+	<-jp.Flush()
+
+	if !regexp.MustCompile(
+		fmt.Sprintf(`"%s": "*"`, jsonmessage.JSONTimeStampKeyHuman),
+	).MatchString(
+		tracing.Show()[0],
+	) {
+		t.Logf("Did not see a human readable timestamp. Raw String:\n%s", tracing.Show()[0])
 		t.Fail()
 	}
 }

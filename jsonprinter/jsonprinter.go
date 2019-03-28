@@ -12,6 +12,8 @@ import (
 type JSONLogger interface {
 	EnablePrettyPrint(bool)
 	EnableAuditMode(bool)
+	EnableHumanTimestamps(bool)
+	AddDecoration(decorator map[string]interface{})
 	OverridePrinter(overrides.Overrider)
 	Send(*jsonmessage.JSONMessage)
 	Flush() chan bool
@@ -33,6 +35,8 @@ type JSONPrinter struct {
 	auditmode         bool
 	droppedMessages   int64
 	transportOverride overrides.Overrider
+	decorations       []map[string]interface{}
+	humanTimestamps   bool
 }
 
 // New created a empty JSON Printer and starts the printer ready for messages.
@@ -40,6 +44,7 @@ func New(buffer uint) *JSONPrinter {
 	jp := &JSONPrinter{
 		logsToPrint:  make(chan string, buffer),
 		FinishedChan: make(chan bool, 1),
+		decorations:  make([]map[string]interface{}, 0),
 	}
 	go jp.printlogs()
 	return jp
@@ -59,6 +64,12 @@ func (j *JSONPrinter) EnablePrettyPrint(toggle bool) {
 // Consider using this with a high buffer count.
 func (j *JSONPrinter) EnableAuditMode(toggle bool) {
 	j.auditmode = toggle
+}
+
+// EnableHumanTimestamps will instruct the printer to tell the JSONMessages that get passed in to try set
+// a human readable timestamp.
+func (j *JSONPrinter) EnableHumanTimestamps(toggle bool) {
+	j.humanTimestamps = toggle
 }
 
 func (j *JSONPrinter) printlogs() {
@@ -103,12 +114,21 @@ func (j *JSONPrinter) Flush() chan bool {
 	return j.FinishedChan
 }
 
+// AddDecoration is used to add default keys with corresponding values. These are added to ALL
+// JSONMessages that are sent via this printer.
+func (j *JSONPrinter) AddDecoration(decorator map[string]interface{}) {
+	j.decorations = append(j.decorations, decorator)
+}
+
 // Send takes a pointer to a JSONMessage and send it to the printer.
 // If the logger is already shutdown then it will just silently consume the message.
 func (j *JSONPrinter) Send(msg *jsonmessage.JSONMessage) {
 	if j.shutdown {
 		return
 	}
+
+	j.decorate(msg)
+
 	if msg.IsDebug() {
 		if !j.printDebug {
 			return
@@ -135,4 +155,19 @@ func (j *JSONPrinter) send(msg string) {
 
 func (j *JSONPrinter) droppedMessage() {
 	j.droppedMessages++
+}
+
+func (j *JSONPrinter) decorate(msg *jsonmessage.JSONMessage) {
+	// set human timestamps if needed.
+	if j.humanTimestamps {
+		msg.AddHumanTimestamp()
+	}
+	// Attach decorations
+	if len(j.decorations) > 0 {
+		for _, decoration := range j.decorations {
+			for key, value := range decoration {
+				msg.Add(key, value)
+			}
+		}
+	}
 }

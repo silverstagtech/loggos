@@ -3,6 +3,8 @@ package jsonmessage
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/silverstagtech/loggos/shared"
 )
@@ -19,6 +21,12 @@ var (
 	// By default the time stamp is a epoch nano number
 	// Can be set by a init function in a higher level package.
 	JSONTimeStampFunc JSONTimeStamper
+	// JSONTimeStampKeyHuman is used when writing a human readable timestamp to the message
+	JSONTimeStampKeyHuman = "human_readable_timestamp"
+	// HumanTimeStampFormat is the time stamp format used for the default timestamp formating
+	HumanTimeStampFormat = "Mon Jan _2 2006 15:04:05 MST"
+	// JSONErrorKey is used as the key for adding an error message
+	JSONErrorKey = "error"
 )
 
 // JSONMessage is a structure that will contain the message that you want to send.
@@ -26,7 +34,8 @@ type JSONMessage struct {
 	msg map[string]interface{}
 }
 
-// New returns a empty JSONMessage ready to be populated
+// New returns a empty JSONMessage ready to be populated. The timestamp will have already been
+// written.
 func New() *JSONMessage {
 	jm := &JSONMessage{
 		msg: make(map[string]interface{}),
@@ -46,6 +55,21 @@ func timeStamp() string {
 // Add adds on the key that you want to add your message. This can be anything you want.
 func (j *JSONMessage) Add(key string, value interface{}) {
 	j.msg[key] = value
+}
+
+// Addf acts like fmt.Sprintf and stores the result under the supplied key. The stored result will be a string.
+func (j *JSONMessage) Addf(key string, format string, values ...interface{}) {
+	j.msg[key] = fmt.Sprintf(format, values...)
+}
+
+// Errorf is a shortcut function that is equivalent to calling Addf(JSONErrorKey, format, values...).
+func (j *JSONMessage) Errorf(format string, values ...interface{}) {
+	j.Addf(JSONErrorKey, format, values...)
+}
+
+// Error is a shortcut function that is equivalent to calling Add(JSONErrorKey, err.Error()).
+func (j *JSONMessage) Error(err error) {
+	j.Add(JSONErrorKey, err.Error())
 }
 
 // SetInfo sets level to INFO
@@ -126,4 +150,28 @@ func (j *JSONMessage) IsDebug() bool {
 		}
 	}
 	return false
+}
+
+// AddHumanTimestamp is used to convert epoch with nanoseconds to a human timestamp.
+// The result is written to the message using the key save in JSONTimeStampKeyHuman.
+// The key under JSONTimeStampKey MUST be a int64 or the key is simply not written.
+// The key under JSONTimeStampKey MUST be a epoch with nano seconds timestamp eg. time.Now().UnixNano()
+// else you will get a strange looking date.
+func (j *JSONMessage) AddHumanTimestamp() {
+	// Can we parse to a string?
+	t, ok := j.msg[JSONTimeStampKey].(string)
+	if !ok {
+		return
+	}
+	// Is the string a number?
+	epoch, err := strconv.ParseInt(t, 10, 64)
+	if err != nil {
+		return
+	}
+
+	// The number must be epoch with nano eg: time.Now().UnixNano()
+	// else you will get a strange looking date.
+	m := epoch / (int64(time.Second) / int64(time.Nanosecond))
+	n := epoch % (int64(time.Second) / int64(time.Nanosecond))
+	j.Add(JSONTimeStampKeyHuman, time.Unix(m, n).Format(HumanTimeStampFormat))
 }

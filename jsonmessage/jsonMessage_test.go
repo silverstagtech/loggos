@@ -1,6 +1,7 @@
 package jsonmessage
 
 import (
+	"fmt"
 	"regexp"
 	"testing"
 
@@ -121,5 +122,59 @@ func TestPrettyString(t *testing.T) {
 	if ok := re.MatchString(jm.PrettyString()); !ok {
 		t.Logf("PrettyString gave back the wrong message. Raw data: %v", jm.PrettyString())
 		t.Fail()
+	}
+}
+
+func TestHumanTimeStamp(t *testing.T) {
+	jm := New()
+	jm.AddHumanTimestamp()
+
+	if jm.msg[JSONTimeStampKeyHuman] == nil {
+		t.Logf("Default timestampping did not yield a value for a humand readable time stamps")
+		t.Fail()
+	}
+}
+
+func TestAddF(t *testing.T) {
+	jm := New()
+	jm.Addf("test_addf", "%s %s", "one", "two")
+
+	if value, ok := jm.msg["test_addf"]; ok {
+		if s, ok := value.(string); ok {
+			if s != "one two" {
+				t.Logf("Addf failed to allocate a key correctly. Raw String: %s", s)
+				t.Fail()
+			}
+		}
+	}
+}
+
+func TestError(t *testing.T) {
+	errMsg := "Test Error Message!!!"
+	jm := New()
+	jm.Error(fmt.Errorf(errMsg))
+
+	if value, ok := jm.msg[JSONErrorKey]; ok {
+		if s, ok := value.(string); ok {
+			if s != errMsg {
+				t.Logf("Error failed to allocate a key correctly. Raw String: %s", s)
+				t.Fail()
+			}
+		}
+	}
+}
+
+func TestErrorf(t *testing.T) {
+	errMsg := "Test Error Message!!!"
+	jm := New()
+	jm.Errorf("%s", errMsg)
+
+	if value, ok := jm.msg[JSONErrorKey]; ok {
+		if s, ok := value.(string); ok {
+			if s != errMsg {
+				t.Logf("Errorf failed to allocate a key correctly. Raw String: %s", s)
+				t.Fail()
+			}
+		}
 	}
 }
