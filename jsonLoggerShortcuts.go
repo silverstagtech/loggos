@@ -24,3 +24,17 @@ func JSONLoggerEnablePrettyPrint(toggle bool) {
 	startdefaultJSONLogger()
 	DefaultJSONLogger.EnablePrettyPrint(toggle)
 }
+
+// JSONLoggerEnableHumanTimestamps starts the default JSON logger if not already started then
+// enabled human timestamping requests on future logs
+func JSONLoggerEnableHumanTimestamps(toggle bool) {
+	startdefaultJSONLogger()
+	DefaultJSONLogger.EnableHumanTimestamps(toggle)
+}
+
+// JSONLoggerAddDecoration starts the default JSON logger if not already started then
+// adds the supplied decoration to the list.
+func JSONLoggerAddDecoration(decoration map[string]interface{}) {
+	startdefaultJSONLogger()
+	DefaultJSONLogger.AddDecoration(decoration)
+}
