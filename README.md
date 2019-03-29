@@ -2,7 +2,7 @@
 
 ## Contents
 
-  Fill me in
+![Logging](./logging.jpg)
 
 ## Description
 
@@ -62,11 +62,16 @@ DefaultLineLoggerBuffer.EnableDebugLogging(true|false)
 
 ## Flexibility of Loggos
 
-Loggos flexibility comes in 3 features.
+Loggos flexibility comes in 3 shared features.
 
 * Allow users to override where logs get shipped to
 * Allow users to override the time stamping
 * Allow users to choose between best effort and audit shipping
+
+Also JSON Messages with the logger have addition features
+
+* Allow users to add default keys values pairs to all messages
+* Allow users to mutate messages BEFORE they get sent to the printers buffer
 
 ### Overriding the Send function
 
@@ -140,3 +145,34 @@ Logs are put into a buffer and printed as fast as the logger can push them out. 
 #### Audit Mode
 
 Logs are put into a buffer, if the buffer is full then the logger waits till there is space available in the buffer. You can tweak this to allow for some risk by increasing the buffer size. If you are planning on using audit mode then you should make a really small buffer size, maybe 1.
+
+### Decorators
+
+JSON Printers can store key value pairs in the form of `map[string]interface{}` that are attached to all log messages that get sent to the printer. These are sent BEFORE the below mutators are called.
+Use this to add something like the hostname of your server that is running your application or to add a containers tracing information.
+
+Decorators will overwrite information that is stored in place of the keys before they get applied.
+
+```go
+hostname, _ := os.Hostname
+decoration := map[string]interface{}{
+  "hostname": hostname,
+}
+
+jp := jsonprinter.New(10)
+jp.AddDecorator(decoration)
+
+```
+
+### Mutators
+
+Mutators are more dangerous and you need to be careful with them. They can have destructive force over the log.
+They differ to decorators in that they allow you to add and remove data as well as allowing the message to be deleted.
+
+Mutators are a simple interfaces that match the jsonprinter.Mutator signature
+
+`Mutate func(*jsonmessage.JSONMessage) bool`.
+
+To gain access to the json messages data call `JSONMessage.RawDump()`.
+
+You can add, remove or modify data here. If the modification fails you can return a `false` which will indicate to the printer that it should discard the message. If everything goes well return a `true` and your modified log message will be put into the printers buffer.

@@ -175,3 +175,9 @@ func (j *JSONMessage) AddHumanTimestamp() {
 	n := epoch % (int64(time.Second) / int64(time.Nanosecond))
 	j.Add(JSONTimeStampKeyHuman, time.Unix(m, n).Format(HumanTimeStampFormat))
 }
+
+// RawDump return a pointer to a JSONMessages internal data structure.
+// Used in conjunction with JSONPrinter Mutator.
+func (j *JSONMessage) RawDump() map[string]interface{} {
+	return j.msg
+}

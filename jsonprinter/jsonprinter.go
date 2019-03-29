@@ -13,7 +13,8 @@ type JSONLogger interface {
 	EnablePrettyPrint(bool)
 	EnableAuditMode(bool)
 	EnableHumanTimestamps(bool)
-	AddDecoration(decorator map[string]interface{})
+	AddDecoration(map[string]interface{})
+	AddMutator(Mutator)
 	OverridePrinter(overrides.Overrider)
 	Send(*jsonmessage.JSONMessage)
 	Flush() chan bool
@@ -37,6 +38,7 @@ type JSONPrinter struct {
 	transportOverride overrides.Overrider
 	decorations       []map[string]interface{}
 	humanTimestamps   bool
+	mutatorList       []Mutator
 }
 
 // New created a empty JSON Printer and starts the printer ready for messages.
@@ -128,6 +130,9 @@ func (j *JSONPrinter) Send(msg *jsonmessage.JSONMessage) {
 	}
 
 	j.decorate(msg)
+	if ok := j.runMutations(msg); !ok {
+		return
+	}
 
 	if msg.IsDebug() {
 		if !j.printDebug {
@@ -170,4 +175,24 @@ func (j *JSONPrinter) decorate(msg *jsonmessage.JSONMessage) {
 			}
 		}
 	}
+}
+
+// AddMutator adds in the supplied mutator to the list of mutations that get called on the log.
+// Beware, here lay dragons. Mutations to logs let you change the log message before they get sent
+// to the printers buffer. If a mutation fails the log message will be discarded as there is no
+// was to know how to fix it. It is up to the developer to make sure that the message is not damaged
+// when the mutator is completed.
+func (j *JSONPrinter) AddMutator(m Mutator) {
+	j.mutatorList = append(j.mutatorList, m)
+}
+
+func (j *JSONPrinter) runMutations(jm *jsonmessage.JSONMessage) bool {
+	if len(j.mutatorList) > 0 {
+		for _, mutator := range j.mutatorList {
+			if ok := mutator.Mutate(jm); !ok {
+				return false
+			}
+		}
+	}
+	return true
 }

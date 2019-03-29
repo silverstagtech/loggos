@@ -1,6 +1,9 @@
 package loggos
 
-import "github.com/silverstagtech/loggos/jsonmessage"
+import (
+	"github.com/silverstagtech/loggos/jsonmessage"
+	"github.com/silverstagtech/loggos/jsonprinter"
+)
 
 // The below functions are all shortcuts that relate to the default logger.
 // Look at the function comments for the JSON Logger type for details on what they do.
@@ -37,4 +40,11 @@ func JSONLoggerEnableHumanTimestamps(toggle bool) {
 func JSONLoggerAddDecoration(decoration map[string]interface{}) {
 	startdefaultJSONLogger()
 	DefaultJSONLogger.AddDecoration(decoration)
+}
+
+// JSONLoggerAddMutator starts the default JSON logger if not already started then
+// adds the supplied mutator to the list.
+func JSONLoggerAddMutator(m jsonprinter.Mutator) {
+	startdefaultJSONLogger()
+	DefaultJSONLogger.AddMutator(m)
 }
